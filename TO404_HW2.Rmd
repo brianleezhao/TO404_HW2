@@ -1,0 +1,199 @@
+---
+title: "TO 404 Homework #2"
+author: "Brian Zhao"
+date: "11/8/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE, cache = TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Load Libraries
+```{r}
+# Load ggplot
+library("ggplot2")
+# Load dplyr
+library("dplyr")
+```
+
+## Homework 2
+Analyzing 2019 NYC CitiBike data
+
+### Read Data
+```{r, eval = FALSE}
+# Read Individual Data Sets
+citi01 <- read.csv("201901-citibike-tripdata.csv")
+citi02 <- read.csv("201902-citibike-tripdata.csv")
+citi03 <- read.csv("201903-citibike-tripdata.csv")
+citi04 <- read.csv("201904-citibike-tripdata.csv")
+citi05 <- read.csv("201905-citibike-tripdata.csv")
+citi06 <- read.csv("201906-citibike-tripdata.csv")
+citi07 <- read.csv("201907-citibike-tripdata.csv")
+citi08 <- read.csv("201908-citibike-tripdata.csv")
+citi09 <- read.csv("201909-citibike-tripdata.csv")
+citi10 <- read.csv("201910-citibike-tripdata.csv")
+citi11 <- read.csv("201911-citibike-tripdata.csv")
+citi12 <- read.csv("201912-citibike-tripdata.csv")
+
+# Create combined 2019 year data set
+citi_2019 <- rbind(citi01, citi02, citi03, citi04, citi05, citi06,
+                  citi07, citi08, citi09, citi10, citi11, citi12)
+```
+
+### Explore Data
+```{r, eval = FALSE}
+str(citi_2019)
+head(citi_2019)
+tail(citi_2019)
+summary(citi_2019)
+```
+
+### Clean Data
+
+```{r, eval = FALSE}
+# Calculate 5% Sample
+citi_sample_temp <- sample_frac(citi_2019, 0.05)
+
+# Write new sample CSV
+write.csv(x = citi_sample_temp, file = "citi_sample.csv")
+```
+
+```{r}
+# Read from new sample CSV for efficiency
+citi_sample <- read.csv("citi_sample.csv")
+```
+
+```{r}
+# Convert Factor Types
+citi_sample$starttime <- as.Date(citi_sample$starttime)
+citi_sample$stoptime <- as.Date(citi_sample$stoptime)
+citi_sample$start.station.id <- as.factor(citi_sample$start.station.id)
+citi_sample$start.station.name <- as.factor(citi_sample$start.station.name)
+citi_sample$end.station.id <- as.factor(citi_sample$end.station.id)
+citi_sample$end.station.name <- as.factor(citi_sample$end.station.name)
+citi_sample$bikeid <- as.factor(citi_sample$bikeid) # converted to factor because each bike is unique
+citi_sample$usertype <- as.factor(citi_sample$usertype)
+citi_sample$gender <- as.factor(citi_sample$gender) # converted to factor because 1 = male & 2 = female
+```
+
+```{r}
+# Re-Check str and summary
+str(citi_sample)
+summary(citi_sample)
+```
+
+## Part 1: Understanding the Data
+Explore the data set to calculate descriptive statistics.
+Do exploratory visualization to better understand the data set.
+
+### Descriptive Statistics
+
+**Average and Median Trip Duration**
+```{r}
+# Average
+mean(citi_sample$tripduration)
+# Median
+median(citi_sample$tripduration)
+```
+The average trip lasts a little over 16 minutes, but the median trip duration is only around 10 minutes (there are likely long trips that are skewing the data)
+
+**Average and Median Rider Birth Year**
+```{r}
+# Average
+mean(citi_sample$birth.year)
+# Median
+median(citi_sample$birth.year)
+```
+The average rider is ~39 years old
+
+**Number of Bikes in The Sample**
+```{r}
+length(levels(citi_sample$bikeid))
+```
+
+**Percent Customer vs. Subscriber**
+```{r}
+# Number of Customers in Sample
+numCustomers <- nrow(citi_sample[citi_sample$usertype == "Customer", ])
+# Number of Subscribers in Sample
+numSubscribers <- nrow(citi_sample[citi_sample$usertype == "Subscriber", ])
+# Total Users in Sample
+totalUsers <- numCustomers + numSubscribers
+```
+`r numCustomers / totalUsers * 100`% of Users are Customers
+`r numSubscribers / totalUsers * 100`% of Users are Subscribers
+
+**Percent Male/Female**
+```{r}
+# Number of Males in Sample
+numMale <- nrow(citi_sample[citi_sample$gender == "1", ])
+# Number of Females in Sample
+numFemale <- nrow(citi_sample[citi_sample$gender == "2", ])
+# Total People in Sample
+totalPeople <- numCustomers + numSubscribers
+```
+`r numMale / totalPeople * 100`% of Riders are Male
+`r numFemale / totalPeople * 100`% of Riders are Female
+
+**Number of Stations in Sample (Start and End)**
+```{r}
+# Start Stations
+length(levels(citi_sample$start.station.name))
+# End Stations
+length(levels(citi_sample$end.station.name))
+```
+Discrepancy in number of start and stop stations likely caused by variance caused by random sample
+
+### Exploratory Visualization
+**Average Trip Duration by Start Station**
+```{r}
+barplot(tapply(citi_sample$tripduration, citi_sample$start.station.name, mean, na.rm = TRUE))
+```
+Some stations have significantly higher trip duration than the expected average of `r mean(citi_sample$tripduration)` seconds. This may signal that at some of these stations bikes are being lost or possibly not returned.
+
+**Average Trip Duration by Month**
+```{r}
+barplot(tapply(citi_sample$tripduration, citi_sample$starttime, mean, na.rm = TRUE))
+```
+It seems that regardless of month the average trip durations vary around the same level. The number of trips may change, but trip duration is relatively consistent.
+
+## Part 2: Identifying Patterns in The Ride History Data
+Illustrating patterns in the data using visualizations
+
+**Questions:**
+- Does ridership pattern differ between weekdays and weekends?
+```{r}
+ggplot(data = citi_sample, aes(x = weekdays.Date(starttime), y = tripduration)) + geom_boxplot() + ylim(0,2000)
+```
+From this data, we can see that the average trip duration on weekends (Saturday and Sunday) are slightly longer than those on weekdays. This is likely due to the fact that trips on weekends are likely for leisure and may be a little longer, while on weekdays more users may be using the bikes for commuting to work where time and being quick is more important.
+
+- Do certain user types (customer vs. subscriber) have different trip duration
+```{r}
+ggplot(data=citi_sample, aes(x=weekdays.Date(starttime), y=tripduration, colour=usertype)) + geom_point(size=1, alpha=0.25, shape=18) + ylim(0,2000)
+```
+From this data, we can see that on average, customers are less likely to take a Citibike for trips with short trip duration than subscribers. This is likely because subscribers are using Citibikes for shorter commutes as well because they don't have to pay for each trip individually (no marginal cost for each additional trip).
+
+- Do certain genders (male vs. female) have different trip duration
+```{r}
+ggplot(data=citi_sample, aes(weekdays.Date(starttime), y=tripduration, colour=gender)) + geom_point(size=1, alpha=0.5, shape=18) + ylim(0,2000)
+```
+It seems that gender has no effect on how long trip duration is. On average their are more males, but gender is not having a large effect.
+
+- Which months are most popular for CitiBike usage?
+```{r}
+ggplot(data=citi_sample, aes(x=starttime)) + geom_bar()
+```
+From this plot we can see that the winter months are much less popular for Citibike usage compared to the summer and fall. This makes sense, especially in New York as being able to ride a bike is very weather dependent (too hot or too cold would not be ideal).
+
+- Which age groups are most likely to use CitiBikes?
+```{r}
+ggplot(data=citi_sample, aes(x=birth.year)) + geom_bar()
+```
+From this bar plot we can see that most riders are born around 1990. However their seems to be a large group of riders (outlier) born around 1970. This shows that most riders are aged around 30 years old with a highly dedicated group of riders around 50 years old. 
+
+- Are certain stations more popular than others?
+```{r}
+ggplot(data=citi_sample, aes(x=start.station.name)) + geom_bar()
+```
+As we can see in this plot, some stations are getting around 6000 rides per year while others are much closer to 0. This shows that some stations could be optimized to have less bikes while more popular ones could be given more bikes or more stations could be positions in those areas.
